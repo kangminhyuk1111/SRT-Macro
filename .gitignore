@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+venv/
+venv311/
+new_venv/
+.venv/
+
+# IDE
+.idea/
+.omc/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config with credentials
+config.json
+config.*.json
