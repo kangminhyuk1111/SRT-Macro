@@ -27,6 +27,12 @@ def choose_rail() -> str:
     ttk.Button(btns, text="KTX", width=12,
                command=lambda: pick("ktx")).pack(side="left", padx=8)
 
+    # macOS에서 터미널로 실행 시 창을 최전면 활성 앱으로 올린다.
+    win.lift()
+    win.attributes("-topmost", True)
+    win.after(200, lambda: win.attributes("-topmost", False))
+    win.focus_force()
+
     win.mainloop()
     return choice["rail"]
 

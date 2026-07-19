@@ -16,7 +16,12 @@ class LoginFrame(ttk.LabelFrame):
         ttk.Entry(row, textvariable=self.id_var, width=16).pack(side="left", padx=(2, 10))
         ttk.Label(row, text="PW:").pack(side="left")
         self.pw_var = tk.StringVar()
-        ttk.Entry(row, textvariable=self.pw_var, width=16, show="*").pack(side="left", padx=(2, 10))
+        self.pw_entry = ttk.Entry(row, textvariable=self.pw_var, width=16, show="*")
+        self.pw_entry.pack(side="left", padx=(2, 2))
+        self._pw_shown = False
+        self.pw_toggle_btn = ttk.Button(row, text="보기", width=4,
+                                        command=self._toggle_pw)
+        self.pw_toggle_btn.pack(side="left", padx=(0, 10))
         self.login_btn = ttk.Button(row, text="로그인", command=self._do_login)
         self.login_btn.pack(side="left", padx=5)
 
@@ -28,6 +33,11 @@ class LoginFrame(ttk.LabelFrame):
                    command=lambda: webbrowser.open(self.manager.find_id_url)).pack(side="right", padx=(5, 0))
         ttk.Button(link_row, text="비밀번호 찾기",
                    command=lambda: webbrowser.open(self.manager.find_pw_url)).pack(side="right", padx=(5, 0))
+
+    def _toggle_pw(self):
+        self._pw_shown = not self._pw_shown
+        self.pw_entry.configure(show="" if self._pw_shown else "*")
+        self.pw_toggle_btn.configure(text="숨김" if self._pw_shown else "보기")
 
     def _do_login(self):
         self.login_btn.configure(state="disabled")

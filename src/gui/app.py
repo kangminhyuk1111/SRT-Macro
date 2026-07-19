@@ -22,16 +22,29 @@ class App:
         self.root.title(f"{manager.name} 예약 매크로 v1.1")
         self.root.geometry("640x800")
         self.root.resizable(False, False)
-        sv_ttk.set_theme("light")
 
         self.worker = None
         self.log_queue = queue.Queue()
+        self._polling = False
+        self._poll_grace = 0
         self.cfg = load_config(self.rail)
+
+        theme = self.cfg.get("theme", "light")
+        if theme in ("light", "dark"):
+            sv_ttk.set_theme(theme)
 
         self._build_ui()
         self._load_config()
-        self._poll_queue()
+        self._activate_window()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _activate_window(self):
+        """macOS에서 터미널로 실행 시 창을 최전면 활성 앱으로 올려
+        키 입력이 지연 없이 바로 처리되도록 한다."""
+        self.root.lift()
+        self.root.attributes("-topmost", True)
+        self.root.after(200, lambda: self.root.attributes("-topmost", False))
+        self.root.focus_force()
 
     def _build_ui(self):
         pad = {"padx": 10, "pady": (5, 0), "sticky": "ew"}
@@ -107,6 +120,7 @@ class App:
         self.reserve_frame.set_running(True)
         self.log_frame.clear()
 
+        self._ensure_polling()
         self.worker = ReservationWorker(
             manager=self.manager,
             trains=selected,
@@ -132,13 +146,32 @@ class App:
         self.worker = None
         messagebox.showinfo("예약 성공", msg)
 
+    def _ensure_polling(self):
+        if not self._polling:
+            self._polling = True
+            self._poll_queue()
+
     def _poll_queue(self):
+        # 로그 큐를 한 번에 비워 Text 위젯 갱신을 한 번으로 묶는다.
+        lines = []
         while not self.log_queue.empty():
             try:
-                self.log_frame.append(self.log_queue.get_nowait())
+                lines.append(self.log_queue.get_nowait())
             except queue.Empty:
                 break
-        self.root.after(100, self._poll_queue)
+        if lines:
+            self.log_frame.append("\n".join(lines))
+        # 예약 진행 중이거나 남은 로그가 있으면 계속 폴링한다. 워커가 막 종료된
+        # 직후에는 마지막 로그가 큐에 늦게 들어올 수 있어 몇 틱 더 돌린다(grace).
+        # 유휴 상태(로그인/입력 중)에는 타이머를 멈춰 입력이 끊기지 않게 한다.
+        if self.worker is not None or not self.log_queue.empty():
+            self._poll_grace = 5
+            self.root.after(100, self._poll_queue)
+        elif self._poll_grace > 0:
+            self._poll_grace -= 1
+            self.root.after(100, self._poll_queue)
+        else:
+            self._polling = False
 
     def _on_close(self):
         if self.worker:
