@@ -34,6 +34,7 @@ export interface AppStatus {
   elapsed: number;
   success_message: string | null;
   train_count: number;
+  dry_run: boolean;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -82,6 +83,11 @@ export const api = {
     }),
   reserveStop: () =>
     request<{ message: string }>('/api/reserve/stop', { method: 'POST' }),
+  setDryRun: (enabled: boolean) =>
+    request<{ dry_run: boolean }>('/api/dryrun', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
   logs: (after: number) =>
     request<{ logs: string[]; next: number }>(`/api/logs?after=${after}`),
   clearLogs: () => request<{ message: string }>('/api/logs', { method: 'DELETE' }),

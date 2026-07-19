@@ -5,6 +5,7 @@ GUI 레이어만 REST API로 대체한다. 로컬 단일 사용자 전제라
 상태는 프로세스 전역(AppState) 하나로 관리한다.
 """
 
+import os
 import queue
 import threading
 
@@ -29,10 +30,47 @@ app.add_middleware(
 )
 
 
+class DryRunReservation:
+    """드라이런 성공 시 워커에 돌려줄 가짜 예약 객체."""
+
+    def __init__(self, train):
+        self.dep_time = getattr(train, "dep_time", "")
+        self.arr_time = getattr(train, "arr_time", "")
+        self.payment_time = "(드라이런 — 실제 예약 아님)"
+
+
+class DryRunManagerProxy:
+    """reserve만 시뮬레이션으로 바꾸고 나머지는 실제 매니저에 위임한다.
+
+    UI/워커 플로우 검증용: 실제 예약 요청이 SRT/코레일 서버로
+    절대 나가지 않는다. 처음 몇 번은 매진으로 실패시켜
+    재시도 루프까지 눈으로 확인할 수 있게 한다.
+    """
+
+    def __init__(self, manager, fail_attempts=4):
+        self._m = manager
+        self._fails_left = fail_attempts
+
+    def __getattr__(self, name):
+        return getattr(self._m, name)
+
+    def reserve(self, train_view, seat_type_str="일반우선",
+                window_seat=False, passengers=None):
+        if self._fails_left > 0:
+            self._fails_left -= 1
+            return False, "[드라이런] 좌석 매진 시뮬레이션"
+        return True, DryRunReservation(train_view)
+
+    def relogin(self):
+        return True, "[드라이런] 재로그인 생략"
+
+
 class AppState:
     def __init__(self):
         self.rail = None            # "srt" | "ktx"
         self.manager = None
+        self.dry_run = os.environ.get(
+            "SRTMACRO_DRY_RUN", "").lower() in ("1", "true", "yes")
         self.trains = []            # 마지막 검색 결과 (TrainView)
         self.worker = None
         self.log_queue = queue.Queue()
@@ -110,7 +148,20 @@ def get_state():
         "elapsed": state.elapsed,
         "success_message": state.success_message,
         "train_count": len(state.trains),
+        "dry_run": state.dry_run,
     }
+
+
+class DryRunBody(BaseModel):
+    enabled: bool
+
+
+@app.post("/api/dryrun")
+def set_dry_run(body: DryRunBody):
+    if state.worker is not None and state.worker.is_alive():
+        raise HTTPException(409, "예매 진행 중에는 변경할 수 없습니다")
+    state.dry_run = body.enabled
+    return {"dry_run": state.dry_run}
 
 
 @app.post("/api/login")
@@ -181,6 +232,8 @@ def reserve_start(body: StartBody):
         raise HTTPException(400, "예매할 열차를 선택해주세요")
 
     state.reset_run()
+    manager = (DryRunManagerProxy(state.manager)
+               if state.dry_run else state.manager)
 
     def on_status(attempt, elapsed):
         state.attempt = attempt
@@ -190,13 +243,14 @@ def reserve_start(body: StartBody):
         state.success_message = msg
 
     state.worker = ReservationWorker(
-        manager=state.manager,
+        manager=manager,
         trains=trains,
         seat_type=body.seat_type,
         window_seat=body.window_seat,
         passengers=body.passengers or None,
         interval=body.interval,
-        discord_webhook=body.discord_webhook,
+        # 드라이런 중에는 디스코드 알림도 보내지 않는다
+        discord_webhook="" if state.dry_run else body.discord_webhook,
         log_queue=state.log_queue,
         on_success_callback=on_success,
         on_status_callback=on_status,

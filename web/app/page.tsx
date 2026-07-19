@@ -74,6 +74,7 @@ export default function Home() {
   const railMeta = meta?.[rail];
   const loggedIn = Boolean(status?.logged_in && status.rail === rail);
   const running = Boolean(status?.running);
+  const dryRun = Boolean(status?.dry_run);
   const successMsg = status?.success_message ?? null;
   const showSuccessModal = Boolean(successMsg && successMsg !== dismissedMsg);
 
@@ -291,6 +292,15 @@ export default function Home() {
   const doStop = async () => {
     try {
       await api.reserveStop();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const toggleDryRun = async (enabled: boolean) => {
+    try {
+      await api.setDryRun(enabled);
+      setStatus(await api.state());
     } catch (e) {
       setError((e as Error).message);
     }
@@ -688,7 +698,7 @@ export default function Home() {
                   onClick={doStart}
                   disabled={selected.size === 0}
                 >
-                  예매 시작 ({selected.size}개 열차)
+                  예매 시작 ({selected.size}개 열차{dryRun ? ' · 드라이런' : ''})
                 </button>
               )}
               {running ? (
@@ -711,6 +721,21 @@ export default function Home() {
                   대기 중
                 </span>
               )}
+              <span className="dryrun-toggle">
+                <label htmlFor="dry-run">
+                  <input
+                    id="dry-run"
+                    type="checkbox"
+                    checked={dryRun}
+                    disabled={running}
+                    onChange={(e) => toggleDryRun(e.target.checked)}
+                  />
+                  드라이런
+                </label>
+                {dryRun && (
+                  <span className="badge badge--amber">실제 예약 안 함</span>
+                )}
+              </span>
             </div>
             {error && <div className="error-note">{error}</div>}
           </div>

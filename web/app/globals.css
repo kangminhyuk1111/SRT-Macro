@@ -670,6 +670,23 @@ input[type='checkbox']:focus-visible {
   color: var(--ink-3);
 }
 
+.dryrun-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dryrun-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
 .run-bar .stat b {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
