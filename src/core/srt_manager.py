@@ -58,14 +58,31 @@ class SRTManager(RailManager):
             raw=t,
         )
 
+    def reset_netfunnel_cache(self):
+        # 만료된 NetFunnel 키가 캐시에 남으면 모든 요청이
+        # "Wrong Server ID"로 실패하므로 캐시를 비워 새 키를 발급받게 한다
+        helper = getattr(self._srt, "netfunnel_helper", None)
+        if helper is not None:
+            helper._cached_key = None
+
     def search(self, dep, arr, date, time_from, passengers=None):
         if not self._srt:
             return False, "로그인이 필요합니다"
+        from SRT.errors import SRTNetFunnelError
         try:
             trains = self._srt.search_train(
                 dep, arr, date, time_from, available_only=False,
             )
             return True, [self._to_view(t) for t in trains]
+        except SRTNetFunnelError:
+            self.reset_netfunnel_cache()
+            try:
+                trains = self._srt.search_train(
+                    dep, arr, date, time_from, available_only=False,
+                )
+                return True, [self._to_view(t) for t in trains]
+            except Exception as e2:
+                return False, str(e2)
         except Exception as e:
             return False, str(e)
 
@@ -101,7 +118,7 @@ class SRTManager(RailManager):
                 window_seat=False, passengers=None):
         if not self._srt:
             return False, "로그인이 필요합니다"
-        from SRT.errors import SRTNotLoggedInError
+        from SRT.errors import SRTNetFunnelError, SRTNotLoggedInError
         train = getattr(train_view, "raw", train_view)
         seat_type = self._seat_type(seat_type_str)
         kwargs = {"special_seat": seat_type}
@@ -113,6 +130,13 @@ class SRTManager(RailManager):
         try:
             reservation = self._srt.reserve(train, **kwargs)
             return True, reservation
+        except SRTNetFunnelError:
+            self.reset_netfunnel_cache()
+            try:
+                reservation = self._srt.reserve(train, **kwargs)
+                return True, reservation
+            except Exception as e2:
+                return False, str(e2)
         except SRTNotLoggedInError:
             ok, msg = self.login(self._id, self._pw)
             if ok:

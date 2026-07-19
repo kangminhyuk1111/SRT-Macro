@@ -22,3 +22,7 @@ Thumbs.db
 # Local config with credentials
 config.json
 config.*.json
+
+# PyInstaller
+build/
+dist/

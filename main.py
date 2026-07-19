@@ -2,7 +2,8 @@ import sys
 import os
 
 if getattr(sys, "frozen", False):
-    os.chdir(os.path.dirname(sys.executable))
+    from src.config.settings import _frozen_base
+    os.chdir(_frozen_base())
 else:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 

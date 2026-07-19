@@ -27,9 +27,19 @@ def _defaults(rail: str) -> dict:
     }
 
 
+def _frozen_base() -> str:
+    base = os.path.dirname(sys.executable)
+    # macOS .app 번들 내부(Contents/MacOS)라면 번들 바깥(.app 옆)에 저장한다
+    parts = base.split(os.sep)
+    if (len(parts) >= 3 and parts[-1] == "MacOS"
+            and parts[-2] == "Contents" and parts[-3].endswith(".app")):
+        base = os.sep.join(parts[:-3]) or os.sep
+    return base
+
+
 def _config_path(rail: str) -> str:
     if getattr(sys, "frozen", False):
-        base = os.path.dirname(sys.executable)
+        base = _frozen_base()
     else:
         base = os.path.dirname(os.path.abspath(__file__))
         base = os.path.join(base, "..", "..")

@@ -33,6 +33,11 @@ class ReservationWorker(threading.Thread):
 
     def run(self):
         rail = self.manager.name
+        # 이전 실행에서 남은 NetFunnel 키가 만료돼 있으면
+        # "Wrong Server ID"로 계속 실패하므로 시작 시 캐시를 비운다
+        reset_cache = getattr(self.manager, "reset_netfunnel_cache", None)
+        if reset_cache:
+            reset_cache()
         send_discord(self.discord_webhook, f"{rail} 예약 매크로를 시작합니다.")
         self._log("예매 시작")
         attempt = 0
