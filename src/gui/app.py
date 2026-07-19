@@ -120,7 +120,6 @@ class App:
         self.reserve_frame.set_running(True)
         self.log_frame.clear()
 
-        self._ensure_polling()
         self.worker = ReservationWorker(
             manager=self.manager,
             trains=selected,
@@ -134,6 +133,9 @@ class App:
             on_status_callback=lambda a, e: self.root.after(0, lambda: self.reserve_frame.set_status(a, e)),
         )
         self.worker.start()
+        # 워커를 할당·시작한 뒤 폴링을 켜야 첫 틱에서 worker=None으로 오인해
+        # 즉시 멈추는 문제가 없다.
+        self._ensure_polling()
 
     def _on_reserve_stop(self):
         if self.worker:
