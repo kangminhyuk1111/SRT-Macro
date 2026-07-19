@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # 로그인 정보/설정(config.*.json)이 컨테이너 재시작 후에도 유지된다
+      - ./data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./web
+      args:
+        # 브라우저가 백엔드에 직접 접근하는 주소 (호스트 기준)
+        NEXT_PUBLIC_API_BASE: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

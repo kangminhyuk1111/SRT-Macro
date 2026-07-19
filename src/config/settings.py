@@ -38,7 +38,10 @@ def _frozen_base() -> str:
 
 
 def _config_path(rail: str) -> str:
-    if getattr(sys, "frozen", False):
+    env_dir = os.environ.get("SRTMACRO_CONFIG_DIR")
+    if env_dir:
+        base = env_dir
+    elif getattr(sys, "frozen", False):
         base = _frozen_base()
     else:
         base = os.path.dirname(os.path.abspath(__file__))
